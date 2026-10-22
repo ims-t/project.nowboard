@@ -19,23 +19,25 @@
     @{
         var countdown = GetLoslaufenCountdown(0);
     }
-    @*Wenn keine Abfahrt gefunden*@
-    @if (datalist.Count == 0 || countdown == -999)
+
+    @if (datalist == null || datalist.Count == 0)
     {
         <span>Keine Abfahrten gefunden.</span>
     }
-    @*Wenn Zeit bis zum Loslaufen grösser als 0 min. ist*@
+
+    else if (countdown == -999)
+    {
+        <span>Aktuell keine passenden Abfahrten (alle Busse bereits abgefahren).</span>
+    }
     else if (countdown > 0)
     {
         <p class="loslaufen">Loslaufen in @countdown min</p>
     }
-    @*Wenn Zeit bis zum Loslaufen gleich oder kleiner als Null ist*@
     else if (countdown <= 0 && countdown >= -1)
     {
         <p class="loslaufen">Jetzt loslaufen!</p>
     }
 
-    @*Tabelle für die Anzeige der Daten*@
     <table class="table">
         <thead>
             <tr>
@@ -46,7 +48,7 @@
             </tr>
         </thead>
         <tbody>
-            @*Für jede Abfahrt zeigt es Linie, Ziel, Abfahrtszeit & Hinweis*@
+
             @foreach (var item in datalist)
             {
                 <tr>

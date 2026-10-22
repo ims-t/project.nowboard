@@ -149,7 +149,7 @@ namespace NowBoard.Components.Pages
                 if (DateTime.TryParse(datalist[i].estimatedTime2, out var abfahrtUtc))
                 {
                     var abfahrt = abfahrtUtc.ToUniversalTime();
-                    var loslaufen = abfahrt.AddMinutes(-6);
+                    var loslaufen = abfahrt.AddMinutes(-BoardSetup.WalkingTimeMinutes);
 
                     var diff = (loslaufen - DateTime.UtcNow).TotalMinutes;
                     int countdown = (int)Math.Ceiling(diff);

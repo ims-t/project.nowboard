@@ -12,7 +12,6 @@
     justify-content: space-between;
     align-items: flex-start;
     margin-top: 20px;
-    margin-bottom: 40px;
     padding: 0;
     font-size: 60px;
 }
@@ -22,14 +21,7 @@
     font-weight: bold;
 }
 
-    .clock {
-    width: 210px;
-    height: 210px;
-    border: none;
-}
-
     .table {
-    margin-top: 135px;
     width: 100%;
     border-collapse: collapse;
 }
@@ -65,7 +57,6 @@
     .clock {
     width: 420px;
     height: 420px;
-    position: absolute;
     top: 20px;
     right: 10px;
     border: none;

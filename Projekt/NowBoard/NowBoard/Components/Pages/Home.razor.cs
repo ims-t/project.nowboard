@@ -13,6 +13,8 @@ namespace NowBoard.Components.Pages
     {
         [Inject]
         public required OpenTransportDataSetup OtdSetup { get; set; }
+        [Inject]
+        public required NowBoardSetup BoardSetup { get; set; }
         private List<Datalist> datalist = new();
         private readonly CancellationTokenSource _cts = new();
 
@@ -53,7 +55,7 @@ namespace NowBoard.Components.Pages
             _cts.Dispose();
         }
 
-        
+
         private async Task DisplayDepartures()
         {
             using var client = new HttpClient
@@ -118,7 +120,8 @@ namespace NowBoard.Components.Pages
                 .Where(d => d.Line is "5" or "S21" or "S22")
                 .OrderBy(d => d.TimetabledTime)
                 .Take(5)
-                .Select(d => {
+                .Select(d =>
+                {
                     var localScheduled = TimeZoneInfo.ConvertTime(d.TimetabledTime, swissZone);
                     var localEstimated = TimeZoneInfo.ConvertTime(d.EstimatedTime, swissZone);
 
@@ -160,49 +163,48 @@ namespace NowBoard.Components.Pages
             return -999;
         }
 
-        private static string RequestCreate() => @"<?xml version=""1.0"" encoding=""UTF-8""?>
-<OJP xmlns=""http://www.vdv.de/ojp"" xmlns:siri=""http://www.siri.org.uk/siri"" version=""2.0"" xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xsi:schemaLocation=""http://www.vdv.de/ojp ../../../../OJP4/OJP.xsd"">
-  <OJPRequest>
-    <siri:ServiceRequest>
-      <OJPStopEventRequest>
-        <siri:RequestTimestamp>2024-06-01T11:24:34.598Z</siri:RequestTimestamp>
-        <siri:MessageIdentifier>SER</siri:MessageIdentifier>
-        <Location>
-          <PlaceRef>
-            <StopPlaceRef>8574258</StopPlaceRef>
-            <Name><Text>St. Gallen, Riethuesli</Text></Name>
-          </PlaceRef>
-        </Location>
-        <Params>
-          <OperatorFilter><Exclude>false</Exclude><OperatorRef>11</OperatorRef></OperatorFilter>
-          <NumberOfResults>5</NumberOfResults>
-          <StopEventType>departure</StopEventType>
-          <IncludePreviousCalls>false</IncludePreviousCalls>
-          <IncludeOnwardCalls>false</IncludeOnwardCalls>
-          <UseRealtimeData>full</UseRealtimeData>
-        </Params>
-      </OJPStopEventRequest>
+        private string RequestCreate()
+        {
+            var requests = new StringBuilder();
 
-      <OJPStopEventRequest>
-        <siri:RequestTimestamp>2024-06-01T11:24:34.598Z</siri:RequestTimestamp>
-        <siri:MessageIdentifier>SER</siri:MessageIdentifier>
-        <Location>
-          <PlaceRef>
-            <StopPlaceRef>8506371</StopPlaceRef>
-            <Name><Text>St. Gallen Riethuesli</Text></Name>
-          </PlaceRef>
-        </Location>
-        <Params>
-          <OperatorFilter><Exclude>false</Exclude><OperatorRef>11</OperatorRef></OperatorFilter>
-          <NumberOfResults>5</NumberOfResults>
-          <StopEventType>departure</StopEventType>
-          <IncludePreviousCalls>false</IncludePreviousCalls>
-          <IncludeOnwardCalls>false</IncludeOnwardCalls>
-          <UseRealtimeData>full</UseRealtimeData>
-        </Params>
-      </OJPStopEventRequest>
-    </siri:ServiceRequest>
-  </OJPRequest>
-</OJP>";
+            foreach (var didok in BoardSetup.DiDok)
+            {
+                requests.AppendLine($"""
+            <OJPStopEventRequest>
+                <siri:RequestTimestamp>2024-06-01T11:24:34.598Z</siri:RequestTimestamp>
+                <siri:MessageIdentifier>SER</siri:MessageIdentifier>
+
+                <Location>
+                    <PlaceRef>
+                        <StopPlaceRef>{didok}</StopPlaceRef>
+                    </PlaceRef>
+                </Location>
+
+                <Params>
+                    <NumberOfResults>5</NumberOfResults>
+                    <StopEventType>departure</StopEventType>
+                    <IncludePreviousCalls>false</IncludePreviousCalls>
+                    <IncludeOnwardCalls>false</IncludeOnwardCalls>
+                    <UseRealtimeData>full</UseRealtimeData>
+                </Params>
+            </OJPStopEventRequest>
+            """);
+            }
+
+            return $"""
+        <?xml version="1.0" encoding="UTF-8"?>
+        <OJP xmlns="http://www.vdv.de/ojp"
+             xmlns:siri="http://www.siri.org.uk/siri"
+             version="2.0">
+
+            <OJPRequest>
+                <siri:ServiceRequest>
+                    {requests}
+                </siri:ServiceRequest>
+            </OJPRequest>
+
+        </OJP>
+        """;
+        }
     }
 }

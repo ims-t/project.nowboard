@@ -9,36 +9,49 @@ using System.Xml.Serialization;
 
 namespace NowBoard.Components.Pages
 {
-    public partial class Home
+    public partial class Home : IDisposable
     {
         [Inject]
         public required OpenTransportDataSetup OtdSetup { get; set; }
         private List<Datalist> datalist = new();
-        private Timer? refreshTimer;
+        private readonly CancellationTokenSource _cts = new();
 
         protected override async Task OnInitializedAsync()
         {
             await DisplayDepartures();
 
-            // Timer aktualisiert Abfahrten jede Minute
-            refreshTimer = new Timer(async _ =>
+            _ = StartRefreshLoopAsync();
+        }
+        private async Task StartRefreshLoopAsync()
+        {
+            using var periodicTimer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+
+            try
             {
-                await InvokeAsync(async () =>
+                while (await periodicTimer.WaitForNextTickAsync(_cts.Token))
                 {
                     await DisplayDepartures();
-                    StateHasChanged();
-                });
-            }, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Wird ausgelöst, wenn der Benutzer die Seite verlässt – völlig normal
+            }
         }
 
         protected override async Task OnAfterRenderAsync(bool firstRender)
         {
-            // Initialisiert die Uhr via JavaScript nach dem ersten Rendern
             if (firstRender)
                 await JS.InvokeVoidAsync("drawClock");
         }
 
-        public void Dispose() => refreshTimer?.Dispose();
+        public void Dispose()
+        {
+            _cts.Cancel();
+            _cts.Dispose();
+        }
 
         
         private async Task DisplayDepartures()
@@ -80,8 +93,8 @@ namespace NowBoard.Components.Pages
                     if (serviceDeparture == null)
                         continue;
 
-                    var estimated = serviceDeparture.EstimatedTime.AddHours(1);
-                    var scheduled = serviceDeparture.TimetabledTime.AddHours(1);
+                    var estimated = DateTime.SpecifyKind(serviceDeparture.EstimatedTime, DateTimeKind.Utc);
+                    var scheduled = DateTime.SpecifyKind(serviceDeparture.TimetabledTime, DateTimeKind.Utc);
                     var line = stopEvent.StopEvent?.Service?.PublishedServiceName?.Text?.Value ?? string.Empty;
 
                     allDepartures.Add(new DepartureInfo
@@ -95,36 +108,47 @@ namespace NowBoard.Components.Pages
                 }
             }
 
+            var swissZone = TimeZoneInfo.FindSystemTimeZoneById(
+                System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
+                    ? "W. Europe Standard Time"
+                    : "Europe/Zurich");
+
             // Filtern auf relevante Linien und nur die nächsten 5 Abfahrten nehmen
             datalist = allDepartures
                 .Where(d => d.Line is "5" or "S21" or "S22")
                 .OrderBy(d => d.TimetabledTime)
                 .Take(5)
-                .Select(d => new Datalist
-                {
-                    haltestelle = d.Station,
-                    timetabledTime = d.TimetabledTime.ToString("t"),
-                    estimatedTime = d.EstimatedTime.ToString("t"),
-                    estimatedTime2 = d.EstimatedTime.ToString("t"),
-                    linie = d.Line,
-                    // Zeigt Verspätung in Minuten an, falls diese > 0 ist
-                    hinweis = d.Hinweis.TotalMinutes < 0.9 ? string.Empty : $"{(int)Math.Round(d.Hinweis.TotalMinutes)}'"
+                .Select(d => {
+                    var localScheduled = TimeZoneInfo.ConvertTime(d.TimetabledTime, swissZone);
+                    var localEstimated = TimeZoneInfo.ConvertTime(d.EstimatedTime, swissZone);
+
+                    return new Datalist
+                    {
+                        haltestelle = d.Station,
+                        timetabledTime = localScheduled.ToString("t"),
+                        estimatedTime = localEstimated.ToString("t"),
+
+                        estimatedTime2 = d.EstimatedTime.ToString("o"),
+
+                        linie = d.Line,
+                        hinweis = d.Hinweis.TotalMinutes < 0.9 ? string.Empty : $"{(int)Math.Round(d.Hinweis.TotalMinutes)}'"
+                    };
                 })
                 .ToList();
         }
 
-        private int GetLoslaufenCountdown(int index)
+        private int GetLoslaufenCountdown(int startIndex = 0)
         {
-            // falls liste leer ist
-            if (datalist == null || datalist.Count <= index) return -999;
+            if (datalist == null || datalist.Count <= startIndex) return -999;
 
-            // suchen nach ersten bus der noch nicht abgefahren ist
-            for (int i = index; i < datalist.Count; i++)
+            for (int i = startIndex; i < datalist.Count; i++)
             {
-                if (DateTime.TryParse(datalist[i].estimatedTime2, out var abfahrt))
+                if (DateTime.TryParse(datalist[i].estimatedTime2, out var abfahrtUtc))
                 {
+                    var abfahrt = abfahrtUtc.ToUniversalTime();
                     var loslaufen = abfahrt.AddMinutes(-6);
-                    var diff = (loslaufen - DateTime.Now).TotalMinutes;
+
+                    var diff = (loslaufen - DateTime.UtcNow).TotalMinutes;
                     int countdown = (int)Math.Ceiling(diff);
 
                     if (countdown >= -1)

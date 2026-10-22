@@ -2,7 +2,7 @@
     time() {
         // aktuelle zeit holen
         const now = new Date();
-        const hours = (now.getUTCHours() + 1) % 24; // für schweizer zeit utc+2
+        const hours = (now.getUTCHours() + 1) % 24; // für schweizer sommerzeit utc+2, für winterzeit/normalzeit utc+1
         const minutes = now.getUTCMinutes();
         const seconds = now.getUTCSeconds();
 

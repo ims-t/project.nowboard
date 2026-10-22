@@ -4,5 +4,6 @@
     {
         public List<string> DiDok { get; set; } = new();
         public string StationName { get; set; } = string.Empty;
+        public int WalkingTimeMinutes { get; set; } = 6;
     }
 }

@@ -95,8 +95,11 @@ namespace NowBoard.Components.Pages
                     if (serviceDeparture == null)
                         continue;
 
-                    var estimated = DateTime.SpecifyKind(serviceDeparture.EstimatedTime, DateTimeKind.Utc);
                     var scheduled = DateTime.SpecifyKind(serviceDeparture.TimetabledTime, DateTimeKind.Utc);
+                    var estimated = serviceDeparture.EstimatedTime is { } e
+                        ? DateTime.SpecifyKind(e, DateTimeKind.Utc)
+                        : scheduled;
+
                     var line = stopEvent.StopEvent?.Service?.PublishedServiceName?.Text?.Value ?? string.Empty;
 
                     allDepartures.Add(new DepartureInfo
